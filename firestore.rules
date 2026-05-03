@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { 
+      return isVerified() && request.auth.token.email == 'omshrivastava01927@gmail.com'; 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128; }
+    function getAffectedKeys() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // User Profile Validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'createdAt']) &&
+             data.id == request.auth.uid &&
+             data.name is string && data.name.size() > 0 &&
+             data.email is string && data.email.size() > 0;
+    }
+
+    match /activities/{activityId} {
+      allow read: if isSignedIn();
+      allow create: if isVerified();
+    }
+
+    // Idea Validation
+    function isValidIdea(data) {
+      return data.keys().hasAll(['id', 'title', 'description', 'status', 'createdAt']) &&
+             data.id is string &&
+             data.title is string && data.title.size() <= 1000 &&
+             data.description is string && data.description.size() <= 60000 &&
+             data.status in ['public', 'private'];
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && (isValidUser(incoming()) || isAdmin());
+      allow update: if isOwner(userId) && (
+        isValidUser(incoming()) || 
+        getAffectedKeys().hasAny(['favorites', 'purchasedIdeas', 'votedIdeas'])
+      );
+      
+      match /favorites/{favoriteId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /ideas/{ideaId} {
+      allow get: if isValidId(ideaId) && (existing().status == 'public' || existing().acquiredBy == request.auth.uid || isAdmin());
+      allow list: if existing().status == 'public' || existing().acquiredBy == request.auth.uid || isAdmin();
+
+      allow create: if isVerified();
+
+      allow update: if isValidId(ideaId) && isVerified() && (
+        // Action: Vote (Allow increments of up to 2 for flips)
+        (getAffectedKeys().hasOnly(['votes']) && 
+         (Math.abs(incoming().votes - existing().votes) <= 2))
+        ||
+        // Action: View Increment
+        (getAffectedKeys().hasOnly(['views']) &&
+         incoming().views >= existing().views)
+        ||
+        // Action: Acquire
+        (getAffectedKeys().hasAny(['status', 'acquiredBy']) &&
+         existing().status == 'public' && 
+         incoming().status == 'private' && 
+         incoming().acquiredBy == request.auth.uid)
+        ||
+        // Action: Roadmap Update
+        (getAffectedKeys().hasOnly(['roadmap']) &&
+         (existing().acquiredBy == request.auth.uid || isAdmin()))
+        ||
+        // Action: Admin Optimization (Price etc)
+        (getAffectedKeys().hasAny(['price', 'anchorPrice']) && isAdmin())
+        ||
+        // Action: General Owner/Admin Edit
+        (isAdmin() || existing().acquiredBy == request.auth.uid)
+      );
+
+      allow delete: if isAdmin();
+    }
+    match /subscribers/{email} {
+      allow create: if true;
+      allow read: if false;
+    }
+  }
+}

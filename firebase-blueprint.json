@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user preferences and activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "Idea": {
+      "title": "Project Idea",
+      "description": "Innovation concept details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "tagline": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "techStack": { "type": "array", "items": { "type": "string" } },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "resources": { "type": "array", "items": { "type": "string" } },
+        "estimatedComplexity": { "type": "string", "enum": ["Easy", "Medium", "Hard"] },
+        "estimatedDuration": { "type": "string" },
+        "status": { "type": "string", "enum": ["public", "private"] },
+        "votes": { "type": "integer" },
+        "price": { "type": "integer" },
+        "views": { "type": "integer", "default": 0 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "acquiredBy": { "type": "string" }
+      },
+      "required": ["id", "title", "description", "status"]
+    },
+    "Activity": {
+      "title": "Activity Log",
+      "description": "System-wide activity events.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["purchase", "new_idea", "vote", "disposal"] },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Favorite": {
+       "title": "User Favorite",
+       "description": "Link between user and idea for favorites.",
+       "type": "object",
+       "properties": {
+         "ideaId": { "type": "string" },
+         "createdAt": { "type": "string", "format": "date-time" }
+       }
+    },
+    "Payment": {
+      "title": "Payment Record",
+      "description": "Verified purchase receipt.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "ideaId", "userId"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles locked to the owner."
+    },
+    "users/{userId}/favorites/{ideaId}": {
+      "schema": "Favorite",
+      "description": "User's bookmarked ideas."
+    },
+    "ideas/{ideaId}": {
+      "schema": "Idea",
+      "description": "Marketplace concepts."
+    },
+    "payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "System-verified payment records."
+    },
+    "activities": {
+      "schema": "Activity",
+      "description": "Global activity feed."
+    }
+  }
+}

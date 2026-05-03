@@ -1,0 +1,95 @@
+[
+  {
+    "id": "seed_1",
+    "title": "Zenith",
+    "tagline": "AI-Driven Hyper-Personalized Fitness Concierge",
+    "description": "Zenith uses computer vision and real-time biometric data to adjust your workout intensity on the fly. It doesn't just track; it acts as a digital trainer that knows exactly when you can push harder or need a rest.",
+    "category": "Health",
+    "techStack": [
+      "React Native",
+      "TensorFlow.js",
+      "Express",
+      "PostgreSQL"
+    ],
+    "features": [
+      "Pose Estimation",
+      "Heart Rate Sync",
+      "Dynamic Routine Generation"
+    ],
+    "resources": [
+      "TF.js PoseNet Docs",
+      "HealthKit API Guide",
+      "OpenCV Tutorials"
+    ],
+    "estimatedComplexity": "Hard",
+    "estimatedDuration": "6 months",
+    "status": "public",
+    "votes": 42,
+    "price": 149,
+    "createdAt": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "seed_2",
+    "title": "StreamLine",
+    "tagline": "Micro-SaaS for Content Creator Tax Automation",
+    "description": "Content creators have complex income streams. StreamLine automatically categorizes platform payouts, creator fund distributions, and brand deal invoices, identifying deductible expenses specific to influencer marketing.",
+    "category": "Fintech",
+    "techStack": [
+      "Next.js",
+      "Plaid API",
+      "Stripe Connect",
+      "Supabase"
+    ],
+    "features": [
+      "Automatic Deductible Detection",
+      "Multi-Currency Sync",
+      "Tax Filing Export"
+    ],
+    "resources": [
+      "Plaid Auth Guide",
+      "IRS Digital Asset Rules",
+      "Stripe Invoicing Docs"
+    ],
+    "estimatedComplexity": "Medium",
+    "estimatedDuration": "3 months",
+    "status": "public",
+    "votes": 28,
+    "price": 89,
+    "createdAt": "2026-05-01T12:00:00Z"
+  },
+  {
+    "id": "ecoscan-ai-2024",
+    "title": "EcoScan AI",
+    "tagline": "Transforming waste management through intelligent vision.",
+    "description": "EcoScan AI is a mobile application designed to revolutionize household recycling. By leveraging computer vision, it identifies waste materials in real-time, provides precise disposal instructions based on local municipality rules, and tracks the user's carbon footprint reduction. The platform includes a gamified system where users earn Green Points for correct sorting, which can be redeemed at eco-friendly partner brands or donated to environmental causes.",
+    "category": "Sustainability Tech",
+    "techStack": [
+      "React Native",
+      "TensorFlow Lite",
+      "Node.js",
+      "PostgreSQL",
+      "AWS Rekognition",
+      "Google Maps API"
+    ],
+    "features": [
+      "Real-time object detection for waste sorting",
+      "Local recycling regulation database integration",
+      "Personalized carbon footprint dashboard",
+      "Gamified rewards system with leaderboard",
+      "Marketplace for local upcycling initiatives"
+    ],
+    "resources": [
+      "Mobile developer",
+      "Machine Learning engineer",
+      "Database of local recycling laws",
+      "Cloud hosting (AWS/GCP)",
+      "Partnerships with eco-conscious brands"
+    ],
+    "estimatedComplexity": "Hard",
+    "estimatedDuration": "6 months",
+    "status": "public",
+    "votes": 0,
+    "price": 199,
+    "createdAt": "2026-05-02T19:34:57.308Z"
+  }
+]
