@@ -23,28 +23,28 @@ export default function Navbar({ onSearch, activeTab, setActiveTab }: NavbarProp
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('explore')}>
             <motion.div
               whileHover={{ rotate: 15 }}
-              className="bg-orange-500 p-1.5 rounded-lg text-white"
+              className="bg-navy p-1.5 rounded-lg text-white"
             >
               <Lightbulb size={24} />
             </motion.div>
-            <span className="font-bold text-xl tracking-tight text-gray-900 hidden sm:block">IdeaVault</span>
+            <span className="font-black text-xl tracking-tighter text-navy hidden sm:block">IdeaVault</span>
           </div>
 
           <div className="flex-1 max-w-md mx-8 group relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-electric transition-colors" size={18} />
             <input
               type="text"
-              placeholder="Search concepts, tech, categories..."
+              placeholder="Search concepts..."
               onChange={(e) => onSearch(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all text-sm"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-electric/10 focus:border-electric focus:bg-white transition-all text-xs font-bold text-navy"
             />
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-4 font-medium text-sm text-gray-600">
+          <div className="flex items-center gap-1 sm:gap-4 font-bold text-xs uppercase tracking-widest text-slate">
              <NavButton
               active={activeTab === 'explore'}
               onClick={() => setActiveTab('explore')}
-              icon={<Search size={20} />}
+              icon={<Search size={18} />}
               label="Explore"
             />
             {user && (
@@ -52,13 +52,13 @@ export default function Navbar({ onSearch, activeTab, setActiveTab }: NavbarProp
                 <NavButton
                   active={activeTab === 'saved'}
                   onClick={() => setActiveTab('saved')}
-                  icon={<Bookmark size={20} />}
+                  icon={<Bookmark size={18} />}
                   label="Saved"
                 />
                 <NavButton
                   active={activeTab === 'profile'}
                   onClick={() => setActiveTab('profile')}
-                  icon={<User size={20} />}
+                  icon={<User size={18} />}
                   label="Profile"
                 />
               </>
@@ -68,29 +68,29 @@ export default function Navbar({ onSearch, activeTab, setActiveTab }: NavbarProp
               <button
                 onClick={() => setActiveTab('notifications')}
                 className={cn(
-                  "p-2 rounded-full transition-all relative",
-                  activeTab === 'notifications' ? 'bg-orange-50 text-orange-600' : 'text-gray-400 hover:text-orange-500'
+                  "p-2 rounded-lg transition-all relative",
+                  activeTab === 'notifications' ? 'bg-navy text-white shadow-lg shadow-navy/20' : 'text-slate hover:text-navy hover:bg-gray-50'
                 )}
               >
-                <Bell size={20} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
+                <Bell size={18} />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-electric rounded-full border border-white"></span>
               </button>
             </div>
 
             {user ? (
               <button
                 onClick={() => auth.signOut()}
-                className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
                 <span className="hidden sm:inline">Logout</span>
               </button>
             ) : (
               <button
                 onClick={signInWithGoogle}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white hover:bg-orange-600 shadow-sm transition-all text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-navy text-white hover:bg-[#1a2b4a] shadow-lg shadow-navy/20 transition-all"
               >
-                <LogIn size={18} />
+                <LogIn size={16} />
                 <span>Login</span>
               </button>
             )}
@@ -105,10 +105,10 @@ function NavButton({ active, icon, label, onClick }: { active: boolean, icon: Re
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all ${
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
         active
-          ? 'bg-orange-50 text-orange-600'
-          : 'hover:bg-gray-50 hover:text-gray-900'
+          ? 'bg-white text-navy shadow-sm border border-gray-100'
+          : 'hover:bg-gray-50 hover:text-navy'
       }`}
     >
       {icon}

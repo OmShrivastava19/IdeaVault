@@ -15,19 +15,19 @@ export default function Footer({ onNavigate }: FooterProps) {
           {/* Brand and Copyright */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <div className="bg-orange-500 p-1.5 rounded-lg text-white">
+              <div className="bg-navy p-1.5 rounded-lg text-white">
                 <Lightbulb size={20} />
               </div>
-              <span className="text-xl font-black tracking-tight text-gray-900">IdeaVault</span>
+              <span className="text-xl font-black tracking-tighter text-navy uppercase">IdeaVault</span>
             </div>
-            <p className="text-gray-500 text-sm max-w-sm mb-6 leading-relaxed">
-              Empowering creators to secure, evolve, and execute high-potential project concepts with AI-driven insights.
+            <p className="text-slate text-sm max-w-sm mb-6 font-medium leading-relaxed">
+              The professional marketplace for creators to secure, evolve, and execute high-potential project concepts.
             </p>
             <div className="flex items-center gap-4">
-              <a href="https://github.com/OmShrivastava19/" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-all">
+              <a href="https://github.com/OmShrivastava19/" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-lg text-slate hover:text-electric transition-all">
                 <Github size={18} />
               </a>
-              <a href="https://www.linkedin.com/in/omshrivastava/" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-all">
+              <a href="https://www.linkedin.com/in/omshrivastava/" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 rounded-lg text-slate hover:text-electric transition-all">
                 <Linkedin size={18} />
               </a>
             </div>
@@ -35,21 +35,21 @@ export default function Footer({ onNavigate }: FooterProps) {
 
           {/* Policy Links */}
           <div>
-            <h4 className="text-xs font-black uppercase tracking-widest text-gray-900 mb-6">Legal</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy mb-6">Legal</h4>
             <ul className="space-y-4">
-              <li><button onClick={() => onNavigate?.('legal-privacy')} className="text-sm text-gray-500 hover:text-orange-600 transition-colors">Privacy Policy</button></li>
-              <li><button onClick={() => onNavigate?.('legal-terms')} className="text-sm text-gray-500 hover:text-orange-600 transition-colors">Terms of Service</button></li>
-              <li><button onClick={() => onNavigate?.('legal-disclaimer')} className="text-sm text-gray-500 hover:text-orange-600 transition-colors">Disclaimer</button></li>
-              <li><button onClick={() => onNavigate?.('legal-security')} className="text-sm text-gray-500 hover:text-orange-600 transition-colors">Data Security</button></li>
+              <li><button onClick={() => onNavigate?.('legal-privacy')} className="text-xs font-bold text-slate hover:text-navy transition-colors">Privacy Policy</button></li>
+              <li><button onClick={() => onNavigate?.('legal-terms')} className="text-xs font-bold text-slate hover:text-navy transition-colors">Terms of Service</button></li>
+              <li><button onClick={() => onNavigate?.('legal-disclaimer')} className="text-xs font-bold text-slate hover:text-navy transition-colors">Disclaimer</button></li>
+              <li><button onClick={() => onNavigate?.('legal-security')} className="text-xs font-bold text-slate hover:text-navy transition-colors">Data Security</button></li>
             </ul>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-xs font-black uppercase tracking-widest text-gray-900 mb-6">Connect</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy mb-6">Connect</h4>
             <ul className="space-y-4">
-              <li><a href="https://www.linkedin.com/in/omshrivastava/" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-500 hover:text-orange-600 transition-colors">LinkedIn</a></li>
-              <li><a href="https://github.com/OmShrivastava19/" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-500 hover:text-orange-600 transition-colors">GitHub</a></li>
+              <li><a href="https://www.linkedin.com/in/omshrivastava/" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate hover:text-navy transition-colors">Follow on LinkedIn</a></li>
+              <li><a href="https://github.com/OmShrivastava19/" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate hover:text-navy transition-colors">Source Code</a></li>
             </ul>
           </div>
         </div>

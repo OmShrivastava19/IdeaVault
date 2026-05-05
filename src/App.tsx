@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Sparkles, Filter, LayoutGrid, List, SlidersHorizontal, Loader2, LogOut, CheckCircle2, X, Search, LogIn, User as UserIcon, Zap } from 'lucide-react';
+import { Plus, Sparkles, Filter, LayoutGrid, List, SlidersHorizontal, Loader2, LogOut, CheckCircle2, X, Search, LogIn, User as UserIcon, Zap, AlertCircle, ShoppingBag, ChevronRight } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, signInWithGoogle } from './lib/firebase';
 import { 
@@ -13,6 +13,8 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
+  getDocs,
   increment, 
   arrayUnion, 
   serverTimestamp,
@@ -24,6 +26,7 @@ import IdeaCard from './components/IdeaCard';
 import IdeaDetail from './components/IdeaDetail';
 import ProfileView from './components/ProfileView';
 import LoginPage from './components/LoginPage';
+import LandingPage from './components/LandingPage';
 import Footer from './components/Footer';
 import { PrivacyPolicy, TermsOfService, Disclaimer, SecurityPolicy } from './components/LegalPages';
 import { Idea, UserProfile, OperationType } from './types';
@@ -50,12 +53,18 @@ export default function App() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [notifications, setNotifications] = useState<{id: string, text: string}[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [showLogin, setShowLogin] = useState(false);
+  const [boosterSelection, setBoosterSelection] = useState<string[]>([]);
+  const [isBoosterMode, setIsBoosterMode] = useState(false);
+
+  const isAdmin = user?.email === 'omshrivastava01927@gmail.com';
 
   // Sync Activity Feed
   useEffect(() => {
@@ -144,14 +153,20 @@ export default function App() {
       return;
     }
     
-    if (generating) return;
+    if (generating || quotaExhausted) return;
     setGenerating(true);
     
     try {
       const { GoogleGenAI, Type } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
+      const ai = new GoogleGenAI({ apiKey });
       
+      const existingTitles = ideas.slice(0, 20).map(i => i.title).join(", ");
       const prompt = `Generate a high-quality, unique startup/project idea.
+      CRITICAL: Do NOT generate ideas similar to these existing ones: ${existingTitles}. 
+      Ensure the core value proposition is distinct from LegalTech, AI contract analysis, or any of the above.
+      
       Output in JSON format with fields: title, tagline, description (markdown), category, techStack (array), features (array), resources (array), estimatedComplexity (Easy/Medium/Hard), estimatedDuration,
       metrics: {
         timeSavedHours: number,
@@ -160,7 +175,7 @@ export default function App() {
       }`;
 
       const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -237,8 +252,14 @@ export default function App() {
         handleFirestoreError(fErr, OperationType.CREATE, ideaRef.path);
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Client generation failed:", err);
+      let errorMsg = "The idea vault seems locked. Please try again later.";
+      if (err?.message?.includes('RESOURCE_EXHAUSTED')) {
+        errorMsg = "AI Quota reached for the month. We use high-quality free-tier models to keep this service accessible.";
+        setQuotaExhausted(true);
+      }
+      setNotifications(prev => [{ id: Date.now().toString(), text: errorMsg }, ...prev]);
     } finally {
       setGenerating(false);
     }
@@ -302,6 +323,23 @@ export default function App() {
     }
   };
 
+  const handleClearTrials = async () => {
+    if (!user) return;
+    setGenerating(true);
+    try {
+      const q = query(collection(db, 'ideas'), where('category', '==', 'Test Drive'));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'ideas', d.id)));
+      await Promise.all(deletePromises);
+      setNotifications(prev => [{ id: Date.now().toString(), text: "All Trial Concepts cleared from the marketplace." }, ...prev]);
+    } catch (err) {
+      console.error("Clear trials failed:", err);
+      handleFirestoreError(err, OperationType.DELETE, 'ideas');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   // Admin: Re-price existing ideas
   const optimizePricing = async () => {
     if (user?.email !== 'omshrivastava01927@gmail.com') return;
@@ -333,10 +371,13 @@ export default function App() {
       signInWithGoogle();
       return;
     }
+    if (generating || quotaExhausted) return;
     setGenerating(true);
     try {
       const { GoogleGenAI, Type } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
+      const ai = new GoogleGenAI({ apiKey });
       
       const marketContext = params?.targetMarket ? `Specifically target the following market: ${params.targetMarket}.` : "";
       const directiveContext = params?.directive ? `Strategic Directive: ${params.directive}.` : "Focus on high-growth scalability and unique market differentiation.";
@@ -352,9 +393,8 @@ export default function App() {
       Focus on specialized features that solve problems for the specified targets.
       
       Output in JSON format with fields: title, tagline, description (markdown), category, techStack (array), features (array), resources (array), estimatedComplexity (Easy/Medium/Hard), estimatedDuration.`;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+       const result = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -411,14 +451,21 @@ export default function App() {
       } catch (fErr) {
         handleFirestoreError(fErr, OperationType.CREATE, newIdeaRef.path);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Remix failed:", err);
+      let errorMsg = "Neural Evolution failed. The market is too volatile right now.";
+      if (err?.message?.includes('RESOURCE_EXHAUSTED')) {
+        errorMsg = "Neural mesh saturated. AI quota reached for this month. Try again later.";
+        setQuotaExhausted(true);
+      }
+      setNotifications(prev => [{ id: Date.now().toString(), text: errorMsg }, ...prev]);
     } finally {
       setGenerating(false);
     }
   };
 
   const handleVote = async (id: string, dir: number) => {
+    if (isBoosterMode) return; // Disable voting in booster mode
     if (!user || !userProfile) {
       signInWithGoogle();
       return;
@@ -451,6 +498,19 @@ export default function App() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!user || !isAdmin) return;
+    try {
+      console.log("Attempting to delete concept:", id);
+      const ideaRef = doc(db, 'ideas', id);
+      await deleteDoc(ideaRef);
+      setNotifications(prev => [{ id: Date.now().toString(), text: "Concept permanently removed from the vault." }, ...prev]);
+    } catch (err) {
+      console.error("Delete operation failed:", err);
+      handleFirestoreError(err, OperationType.DELETE, `ideas/${id}`);
+    }
+  };
+
   const recommendations = useMemo(() => {
     if (!userProfile?.purchasedIdeas || userProfile.purchasedIdeas.length === 0) return [];
     const purchased = ideas.filter(i => userProfile.purchasedIdeas.includes(i.id));
@@ -460,6 +520,12 @@ export default function App() {
 
   const filteredIdeas = useMemo(() => {
     let result = ideas;
+    
+    // In 'explore' (main dashboard), only show public ideas that haven't been acquired yet
+    if (activeTab === 'explore' || !activeTab) {
+      result = result.filter(i => i.status === 'public' && !i.acquiredBy);
+    }
+    
     if (activeTab === 'saved') {
       if (!userProfile) return [];
       result = result.filter(i => userProfile.favorites.includes(i.id) || userProfile.purchasedIdeas.includes(i.id));
@@ -475,20 +541,133 @@ export default function App() {
     return result;
   }, [ideas, activeTab, searchQuery, userProfile]);
 
+  const handleIdeaClick = (idea: Idea) => {
+    if (isBoosterMode) {
+      if (userProfile?.purchasedIdeas.includes(idea.id)) {
+        setNotifications(prev => [{ id: 'booster-owned', text: 'You already own this concept.' }, ...prev]);
+        return;
+      }
+      if (boosterSelection.includes(idea.id)) {
+        setBoosterSelection(prev => prev.filter(id => id !== idea.id));
+      } else if (boosterSelection.length < 3) {
+        setBoosterSelection(prev => [...prev, idea.id]);
+      } else {
+        setNotifications(prev => [{ id: 'booster-full', text: 'You can only select 3 concepts for the booster.' }, ...prev]);
+      }
+      return;
+    }
+    setSelectedIdea(idea);
+  };
+
+  const handleBoosterPayment = async () => {
+    if (boosterSelection.length !== 3) return;
+    if (!window.Razorpay) {
+      alert("Razorpay SDK not loaded.");
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/create-booster-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const order = await res.json();
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "IdeaVault",
+        description: "Vault Booster (3 Additional Verified Concepts)",
+        order_id: order.id,
+        handler: async function(response: any) {
+          console.log("Booster Payment Success:", response);
+          
+          // Transfer to private vault
+          try {
+            const batch = boosterSelection.map(async (id) => {
+              const ideaRef = doc(db, 'ideas', id);
+              await updateDoc(ideaRef, {
+                status: 'private',
+                acquiredBy: user!.uid
+              });
+            });
+            
+            await Promise.all(batch);
+            
+            const userRef = doc(db, 'users', user!.uid);
+            await updateDoc(userRef, {
+              purchasedIdeas: arrayUnion(...boosterSelection)
+            });
+
+            // Activity log
+            const activityRef = doc(collection(db, 'activities'));
+            await setDoc(activityRef, {
+              id: activityRef.id,
+              type: "purchase",
+              text: `🌟 ${userProfile?.name} used a Vault Booster to secure 3 concepts!`,
+              timestamp: new Date().toISOString()
+            });
+
+            setBoosterSelection([]);
+            setIsBoosterMode(false);
+            setNotifications(prev => [{ id: 'booster-success', text: 'Success! Your selections are now in your Private Vault.' }, ...prev]);
+            celebrateBooster();
+          } catch (err) {
+            console.error("Selection update failed:", err);
+          }
+        },
+        prefill: {
+          name: userProfile?.name,
+          email: userProfile?.email
+        },
+        theme: { color: "#9333ea" }
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error("Booster payment error:", err);
+    }
+  };
+
+  const celebrateBooster = () => {
+    if ((window as any).confetti) {
+      (window as any).confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#9333ea', '#f97316', '#ffffff']
+      });
+    }
+  };
+
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-electric animate-spin" />
       </div>
     );
   }
 
   if (!user) {
-    return <LoginPage />;
+    if (showLogin) {
+      return (
+        <div className="relative">
+          <button 
+            onClick={() => setShowLogin(false)}
+            className="fixed top-8 left-8 z-[100] flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-black uppercase tracking-widest text-navy hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            ← Back
+          </button>
+          <LoginPage />
+        </div>
+      );
+    }
+    return <LandingPage onLogin={() => setShowLogin(true)} />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-orange-100 selection:text-orange-900">
+    <div className="min-h-screen bg-[#F8FAFC] text-navy font-sans selection:bg-electric/10 selection:text-electric">
       <style>{masonryStyles}</style>
       <Navbar onSearch={setSearchQuery} activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -505,6 +684,7 @@ export default function App() {
                 userProfile={userProfile} 
                 purchasedIdeas={ideas.filter(i => userProfile?.purchasedIdeas.includes(i.id))} 
                 activities={activities}
+                onIdeaClick={handleIdeaClick}
               />
             </motion.div>
           ) : activeTab === 'legal-privacy' ? (
@@ -620,6 +800,12 @@ export default function App() {
                 </div>
 
                   <div className="flex gap-3 flex-wrap md:flex-nowrap">
+                    {quotaExhausted && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold">
+                        <AlertCircle size={14} />
+                        AI Quota Exhausted
+                      </div>
+                    )}
                     {user?.email === 'omshrivastava01927@gmail.com' && (
                        <button
                        onClick={optimizePricing}
@@ -636,6 +822,15 @@ export default function App() {
                       <Zap size={20} className="text-orange-500" />
                       Seed Trial Concept
                     </button>
+                    {user?.email === 'omshrivastava01927@gmail.com' && (
+                       <button
+                         onClick={handleClearTrials}
+                         className="px-6 py-3 bg-white border border-gray-200 text-red-600 rounded-2xl font-bold flex items-center gap-2 hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                       >
+                         <X size={20} />
+                         Clear Trials
+                       </button>
+                    )}
                     <button
                       onClick={() => handleGenerate()}
                       disabled={generating}
@@ -659,10 +854,14 @@ export default function App() {
                       <div key={`rec-${idea.id}`} className="scale-95 hover:scale-100 transition-transform origin-left">
                         <IdeaCard
                           idea={idea}
-                          onClick={() => setSelectedIdea(idea)}
+                          onClick={() => handleIdeaClick(idea)}
                           onVote={(dir) => handleVote(idea.id, dir)}
                           userVote={userProfile.votedIdeas[idea.id]}
                           isPurchased={userProfile.purchasedIdeas.includes(idea.id)}
+                          onDelete={isAdmin ? () => handleDelete(idea.id) : undefined}
+                          className={cn(
+                            isBoosterMode && boosterSelection.includes(idea.id) && "ring-4 ring-purple-500 ring-offset-4"
+                          )}
                         />
                       </div>
                     ))}
@@ -701,10 +900,14 @@ export default function App() {
                       <div key={idea.id} className="masonry-item">
                         <IdeaCard
                           idea={idea}
-                          onClick={() => setSelectedIdea(idea)}
+                          onClick={() => handleIdeaClick(idea)}
                           onVote={(dir) => handleVote(idea.id, dir)}
                           userVote={userProfile?.votedIdeas?.[idea.id]}
                           isPurchased={userProfile?.purchasedIdeas?.includes(idea.id) || false}
+                          onDelete={isAdmin ? () => handleDelete(idea.id) : undefined}
+                          className={cn(
+                            isBoosterMode && boosterSelection.includes(idea.id) && "ring-4 ring-purple-500 ring-offset-4"
+                          )}
                         />
                       </div>
                     ))}
@@ -734,7 +937,14 @@ export default function App() {
             idea={selectedIdea}
             onClose={() => setSelectedIdea(null)}
             onPurchase={(id) => {
+              // Keep modal open so player can see roadmap/blueprint immediately
+              console.log("Idea secured:", id);
+            }}
+            onStartBooster={() => {
               setSelectedIdea(null);
+              setIsBoosterMode(true);
+              setBoosterSelection([]);
+              setActiveTab('explore');
             }}
             onViewIncrease={async (id) => {
                if (!user) return; // Prevent permission error
@@ -765,6 +975,49 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      {/* Selection Mode Overlay */}
+      {isBoosterMode && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl px-4">
+          <motion.div 
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            className="bg-gray-900/90 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl flex items-center justify-between"
+          >
+            <div className="flex items-center gap-6">
+              <div className="bg-purple-500/20 p-3 rounded-2xl">
+                <ShoppingBag className="text-purple-400" size={24} />
+              </div>
+              <div>
+                <h3 className="text-white font-black text-lg">Vault Booster Active</h3>
+                <p className="text-purple-300 text-xs font-bold uppercase tracking-widest">
+                  {boosterSelection.length} / 3 Concepts Selected
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => {
+                  setIsBoosterMode(false);
+                  setBoosterSelection([]);
+                }}
+                className="px-4 py-3 text-white/60 font-bold hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                disabled={boosterSelection.length !== 3}
+                onClick={handleBoosterPayment}
+                className="px-8 py-3 bg-purple-600 text-white rounded-xl font-black shadow-lg hover:bg-purple-700 disabled:opacity-50 transition-all flex items-center gap-2"
+              >
+                Unlock Bundle (₹299)
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Global Toast Placeholder */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none">

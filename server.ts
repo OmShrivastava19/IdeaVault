@@ -48,6 +48,21 @@ async function startServer() {
     }
   });
 
+  app.post("/api/create-booster-order", async (req, res) => {
+    try {
+      const options = {
+        amount: 299 * 100, // ₹299 in paise
+        currency: "INR",
+        receipt: `booster_${Date.now()}`,
+      };
+      const order = await razorpay.orders.create(options);
+      res.json(order);
+    } catch (error) {
+      console.error("Razorpay error:", error);
+      res.status(500).json({ error: "Booster order creation failed" });
+    }
+  });
+
   app.post("/api/verify-payment", async (req, res) => {
     const { orderId, paymentId, signature, ideaId, userId } = req.body;
     const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "test");

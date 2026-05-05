@@ -19,6 +19,8 @@ export interface Idea {
   acquiredBy?: string;
   isTrending?: boolean;
   roadmap?: string;
+  implementationRoadmap?: string;
+  marketAngles?: string[];
 }
 
 export interface UserProfile {

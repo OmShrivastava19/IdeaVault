@@ -9,9 +9,10 @@ interface ProfileViewProps {
   userProfile: UserProfile | null;
   purchasedIdeas: Idea[];
   activities: any[];
+  onIdeaClick: (idea: Idea) => void;
 }
 
-export default function ProfileView({ userProfile, purchasedIdeas, activities }: ProfileViewProps) {
+export default function ProfileView({ userProfile, purchasedIdeas, activities, onIdeaClick }: ProfileViewProps) {
   if (!userProfile) {
     return (
       <div className="max-w-4xl mx-auto py-32 text-center">
@@ -87,6 +88,7 @@ export default function ProfileView({ userProfile, purchasedIdeas, activities }:
                   <motion.div
                     key={idea.id}
                     whileHover={{ x: 4 }}
+                    onClick={() => onIdeaClick(idea)}
                     className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between group cursor-pointer shadow-sm"
                   >
                     <div className="flex items-center gap-4">

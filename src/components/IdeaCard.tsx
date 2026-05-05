@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Pin, ArrowBigUp, ArrowBigDown, Lock, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
+import { Pin, ArrowBigUp, ArrowBigDown, Lock, ShieldCheck, Sparkles, TrendingUp, ArrowRight, X } from 'lucide-react';
 import { Idea } from '../types';
 import { cn } from '../lib/utils';
 
@@ -8,11 +8,13 @@ interface IdeaCardProps {
   idea: Idea;
   onClick: () => void;
   onVote: (vote: number) => void;
+  onDelete?: () => void;
   userVote?: number;
   isPurchased?: boolean;
+  className?: string;
 }
 
-export default function IdeaCard({ idea, onClick, onVote, userVote, isPurchased }: IdeaCardProps) {
+export default function IdeaCard({ idea, onClick, onVote, onDelete, userVote, isPurchased, className }: IdeaCardProps) {
   // Generate a sophisticated background based on category
   const getAccentStyle = (cat: string) => {
     const styles: Record<string, { bg: string, text: string, decoration: string }> = {
@@ -36,102 +38,110 @@ export default function IdeaCard({ idea, onClick, onVote, userVote, isPurchased 
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -8, scale: 1.02 }}
+      whileHover={{ y: -4 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="relative group bg-white rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden cursor-pointer flex flex-col h-full"
+      className={cn("relative group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer flex flex-col h-full hover:border-electric transition-colors", className)}
       onClick={onClick}
     >
-      {/* Visual Header / Pin Thumbnail */}
-      <div className={cn("h-44 relative flex items-center justify-center overflow-hidden bg-gradient-to-br transition-all duration-500 group-hover:scale-105", style.bg)}>
-        {/* Animated Background Decoration */}
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-          className={cn("absolute -right-10 -top-10 w-40 h-40 rounded-[2rem] blur-3xl opacity-50 group-hover:opacity-80 transition-opacity", style.decoration)}
-        />
-        
-        <div className="absolute inset-0 bg-black/5 mix-blend-overlay" />
+      {/* Visual Header */}
+      <div className={cn("h-40 relative flex items-center justify-center overflow-hidden bg-gray-50 transition-all duration-500", style.bg)}>
+        <div className="absolute inset-0 bg-navy opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-br from-electric/20 to-transparent" />
         
         {/* Badges */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-20">
           <div className="flex gap-2">
-            <span className="bg-white/20 backdrop-blur-md border border-white/30 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
+            <span className="bg-white/10 backdrop-blur-md border border-white/20 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest text-white">
               {idea.category}
             </span>
             {idea.isTrending && (
-               <span className="bg-yellow-400 text-yellow-950 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
-                <TrendingUp size={10} /> Trending
+               <span className="bg-electric text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-electric/20">
+                <TrendingUp size={10} /> Hot
               </span>
             )}
           </div>
           
           {idea.status === 'private' ? (
-             <span className="bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-sm flex items-center gap-1">
+             <span className="bg-white/10 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest text-white flex items-center gap-1">
               <Lock size={10} /> Exclusive
             </span>
           ) : (
             <div className="flex flex-col items-end gap-1">
-              <span className="bg-white text-gray-900 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-1">
-                <Sparkles size={10} className="text-orange-500" /> ₹{idea.price}
+              <span className="bg-white text-navy px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-1">
+                ₹{idea.price}
               </span>
-              {idea.anchorPrice && (
-                 <span className="text-[10px] font-bold text-white/60 line-through mr-1">₹{idea.anchorPrice}</span>
-              )}
             </div>
           )}
         </div>
 
-        <div className="text-white text-center p-8 relative z-10">
-          <h3 className="font-black text-2xl leading-[1.1] line-clamp-2 drop-shadow-2xl tracking-tight transition-transform group-hover:scale-105 duration-300">
+        <div className="text-white text-center p-6 relative z-10 w-full">
+          <h3 className="font-black text-xl leading-tight line-clamp-2 tracking-tight">
             {idea.title}
           </h3>
         </div>
 
         {/* Action Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px] flex items-end justify-center p-8 translate-y-4 group-hover:translate-y-0">
-            <button className="w-full bg-white text-gray-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 hover:bg-orange-50 active:scale-95 transition-all">
-              {isPurchased || idea.status === 'private' ? 'Open Vault' : 'Secure Access'}
-              <Sparkles size={14} className="text-orange-500" />
+        <div className="absolute inset-0 bg-navy/80 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px] flex items-center justify-center p-6 translate-y-4 group-hover:translate-y-0 z-30">
+            <button className="w-full bg-electric text-white py-3 rounded-lg font-black text-[10px] uppercase tracking-widest shadow-xl shadow-electric/20 flex items-center justify-center gap-2 active:scale-95 transition-all">
+              {isPurchased || idea.status === 'private' ? 'Open Vault' : 'Secure Concept'}
+              <ArrowRight size={14} />
             </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6 flex flex-col flex-1">
-        <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-3 opacity-60", style.bg.split(' ')[0].replace('from-', 'text-'))}>
+      <div className="p-5 flex flex-col flex-1">
+        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-electric mb-2">
           {idea.tagline}
         </p>
-        <p className="text-gray-600 text-sm line-clamp-3 mb-6 leading-relaxed font-medium">
+        <p className="text-slate text-xs line-clamp-3 mb-6 leading-relaxed font-medium">
           {idea.description}
         </p>
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
-          <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-2xl">
+          <div className="flex items-center gap-1 bg-gray-50 p-0.5 rounded-lg">
             <button
               onClick={(e) => { e.stopPropagation(); onVote(1); }}
-              className={cn("p-1.5 rounded-xl transition-all", userVote === 1 ? 'bg-orange-100 text-orange-600' : 'text-gray-400 hover:text-orange-500 hover:bg-white')}
+              className={cn("p-1 rounded transition-all", userVote === 1 ? 'bg-white text-electric shadow-sm' : 'text-slate hover:text-navy hover:bg-white')}
             >
-              <ArrowBigUp size={22} fill={userVote === 1 ? "currentColor" : "none"} />
+              <ArrowBigUp size={20} fill={userVote === 1 ? "currentColor" : "none"} />
             </button>
-            <span className="text-sm font-black text-gray-800 min-w-[2ch] px-1 text-center">{idea.votes}</span>
+            <span className="text-[10px] font-black text-navy min-w-[2ch] px-1 text-center">{idea.votes}</span>
             <button
               onClick={(e) => { e.stopPropagation(); onVote(-1); }}
-              className={cn("p-1.5 rounded-xl transition-all", userVote === -1 ? 'bg-red-100 text-red-600' : 'text-gray-400 hover:text-red-500 hover:bg-white')}
+              className={cn("p-1 rounded transition-all", userVote === -1 ? 'bg-white text-red-500 shadow-sm' : 'text-slate hover:text-red-500 hover:bg-white')}
             >
-              <ArrowBigDown size={22} fill={userVote === -1 ? "currentColor" : "none"} />
+              <ArrowBigDown size={20} fill={userVote === -1 ? "currentColor" : "none"} />
             </button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
              {idea.techStack.slice(0, 2).map((tech) => (
-                <span key={tech} className="bg-gray-50 border border-gray-100 text-gray-400 text-[9px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg">
-                  {tech}
+                <span key={tech} className="text-slate text-[9px] font-bold uppercase tracking-tight">
+                  #{tech.toLowerCase()}
                 </span>
              ))}
           </div>
         </div>
       </div>
+
+      {/* Admin Delete Action */}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (window.confirm('⚠️ WARNING: This will permanently remove this concept from the vault. Proceed?')) {
+              onDelete();
+            }
+          }}
+          className="absolute top-2 right-2 z-[9999] p-2 bg-red-600 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-700 shadow-2xl hover:scale-110 active:scale-95 flex items-center justify-center pointer-events-auto"
+          title="Delete Concept"
+        >
+          <X size={16} />
+        </button>
+      )}
     </motion.div>
   );
 }

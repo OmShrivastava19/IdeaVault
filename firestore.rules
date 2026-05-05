@@ -62,7 +62,7 @@ service cloud.firestore {
       allow update: if isValidId(ideaId) && isVerified() && (
         // Action: Vote (Allow increments of up to 2 for flips)
         (getAffectedKeys().hasOnly(['votes']) && 
-         (Math.abs(incoming().votes - existing().votes) <= 2))
+         (math.abs(incoming().get('votes', 0) - existing().get('votes', 0)) <= 2))
         ||
         // Action: View Increment
         (getAffectedKeys().hasOnly(['views']) &&
