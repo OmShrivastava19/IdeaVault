@@ -11,9 +11,10 @@ interface NavbarProps {
   onSearch: (query: string) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  notificationCount?: number;
 }
 
-export default function Navbar({ onSearch, activeTab, setActiveTab }: NavbarProps) {
+export default function Navbar({ onSearch, activeTab, setActiveTab, notificationCount = 0 }: NavbarProps) {
   const [user] = useAuthState(auth);
 
   return (
@@ -73,7 +74,7 @@ export default function Navbar({ onSearch, activeTab, setActiveTab }: NavbarProp
                 )}
               >
                 <Bell size={18} />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-electric rounded-full border border-white"></span>
+                {notificationCount > 0 && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-electric rounded-full border border-white"></span>}
               </button>
             </div>
 

@@ -19,8 +19,26 @@ export interface Idea {
   acquiredBy?: string;
   isTrending?: boolean;
   roadmap?: string;
+  opportunity?: string;
   implementationRoadmap?: string;
   marketAngles?: string[];
+  marketAngleAnalysis?: MarketAngleAnalysis;
+}
+
+export interface MarketAngleAnalysis {
+  marketSizing: string;
+  competitiveLandscape: string;
+  targetAudience: string;
+  feasibility: string;
+  strategy: string;
+  summaryTable: {
+    product: string;
+    audience: string;
+    competition: string;
+    demand: string;
+    resources: string;
+    strategy: string;
+  };
 }
 
 export interface UserProfile {
@@ -51,5 +69,11 @@ export interface FirestoreErrorInfo {
     userId?: string | null;
     email?: string | null;
     emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
   }
 }

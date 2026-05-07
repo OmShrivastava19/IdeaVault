@@ -18,3 +18,12 @@
     @apply bg-white text-navy font-sans antialiased;
   }
 }
+
+@layer components {
+  .markdown-content h3 {
+    @apply text-sm font-bold mt-4 mb-2 text-navy;
+  }
+  .markdown-content p {
+    @apply mb-3 text-slate;
+  }
+}

@@ -32,6 +32,7 @@ import { PrivacyPolicy, TermsOfService, Disclaimer, SecurityPolicy } from './com
 import { Idea, UserProfile, OperationType } from './types';
 import { cn } from './lib/utils';
 import { handleFirestoreError } from './lib/firestoreUtils';
+import { generateAIResponse } from './lib/openrouter';
 
 // Global styles for Masonry-like grid
 const masonryStyles = `
@@ -56,6 +57,7 @@ export default function App() {
   const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [notifications, setNotifications] = useState<{id: string, text: string}[]>([]);
@@ -157,54 +159,42 @@ export default function App() {
     setGenerating(true);
     
     try {
-      const { GoogleGenAI, Type } = await import('@google/genai');
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
-      const ai = new GoogleGenAI({ apiKey });
+      const existingTitles = (ideas || []).slice(0, 20).map(i => i.title).join(", ");
       
-      const existingTitles = ideas.slice(0, 20).map(i => i.title).join(", ");
-      const prompt = `Generate a high-quality, unique startup/project idea.
+      // Determine target category based on selection or random if on 'All'
+      const categories = ['SaaS', 'AI', 'Fintech', 'Health', 'Blockchain'];
+      const targetCategory = selectedCategory !== 'All' ? selectedCategory : categories[Math.floor(Math.random() * categories.length)];
+
+      const prompt = `Generate a high-quality, unique startup/project idea specifically for the ${targetCategory} sector.
       CRITICAL: Do NOT generate ideas similar to these existing ones: ${existingTitles}. 
       Ensure the core value proposition is distinct from LegalTech, AI contract analysis, or any of the above.
+      The idea should be specifically tailored to exploit gaps in the ${targetCategory} market with an innovative "hook".
       
-      Output in JSON format with fields: title, tagline, description (markdown), category, techStack (array), features (array), resources (array), estimatedComplexity (Easy/Medium/Hard), estimatedDuration,
+      Output in JSON format with fields: title, tagline, description (markdown), category (strictly: ${targetCategory}), techStack (array), features (array), resources (array), estimatedComplexity (Easy/Medium/Hard), estimatedDuration,
+      marketAngles: string[] (3 unique hooks),
+      marketAngleAnalysis: {
+        marketSizing: string,
+        competitiveLandscape: string,
+        targetAudience: string,
+        feasibility: string,
+        strategy: string,
+        summaryTable: {
+          product: string,
+          audience: string,
+          competition: string,
+          demand: string,
+          resources: string,
+          strategy: string
+        }
+      },
       metrics: {
         timeSavedHours: number,
         potentialMarketValueINR: number,
         demandLevel: number (0.8 to 1.2)
       }`;
 
-      const result = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              tagline: { type: Type.STRING },
-              description: { type: Type.STRING },
-              category: { type: Type.STRING },
-              techStack: { type: Type.ARRAY, items: { type: Type.STRING } },
-              features: { type: Type.ARRAY, items: { type: Type.STRING } },
-              resources: { type: Type.ARRAY, items: { type: Type.STRING } },
-              estimatedComplexity: { type: Type.STRING },
-              estimatedDuration: { type: Type.STRING },
-              metrics: {
-                type: Type.OBJECT,
-                properties: {
-                  timeSavedHours: { type: Type.NUMBER },
-                  potentialMarketValueINR: { type: Type.NUMBER },
-                  demandLevel: { type: Type.NUMBER }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      const data = JSON.parse(result.text || "{}");
+      const responseText = await generateAIResponse(prompt);
+      const data = JSON.parse(responseText || "{}");
       
       // Calculate Pricing Strategy (improved for Indian Market - Median ~129)
       // Perceived value is lowered to reflect a more accessible starting point
@@ -255,8 +245,14 @@ export default function App() {
     } catch (err: any) {
       console.error("Client generation failed:", err);
       let errorMsg = "The idea vault seems locked. Please try again later.";
-      if (err?.message?.includes('RESOURCE_EXHAUSTED')) {
-        errorMsg = "AI Quota reached for the month. We use high-quality free-tier models to keep this service accessible.";
+      const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+      
+      if (errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('429')) {
+        if (errorStr.includes('spending cap')) {
+          errorMsg = "AI Budget Exhausted: The monthly spending cap has been reached. Please contact the project owner.";
+        } else {
+          errorMsg = "AI Quota reached for the month. We use high-quality free-tier models to keep this service accessible.";
+        }
         setQuotaExhausted(true);
       }
       setNotifications(prev => [{ id: Date.now().toString(), text: errorMsg }, ...prev]);
@@ -288,7 +284,7 @@ export default function App() {
         title: "Experimental Neural Mirror (TRIAL)",
         tagline: "Experience the Vault's depth without spending a rupee.",
         description: "### The Vision\nA cutting-edge experimental concept designed to showcase how IdeaVault blueprints work. This idea is completely free for testing purposes.\n\n### Execution Strategy\nFocus on low-latency data streaming and edge computation to minimize overhead while maximizing user feedback loops.",
-        category: "Test Drive",
+        category: "AI",
         techStack: ["Next.js", "Redis", "WebSockets", "TensorFlow.js"],
         features: [
           "End-to-end encryption for trial data",
@@ -311,7 +307,27 @@ export default function App() {
         limitedStock: 99,
         createdAt: new Date().toISOString(),
         acquiredBy: "",
-        isTrending: true
+        isTrending: true,
+        marketAngles: [
+          "Disrupt the trial ecosystem with zero-cost exploration.",
+          "Showcase platform capabilities through high-fidelity prototypes.",
+          "Onboard users via frictionless architectural transparency."
+        ],
+        marketAngleAnalysis: {
+          marketSizing: "Targeting 1M+ aspiring entrepreneurs in the emerging tech ecosystem.",
+          competitiveLandscape: "IdeaVault stands alone by bridging the gap between pure inspiration and actionable blueprints.",
+          targetAudience: "Indie hackers, startup founders, and corporate innovation labs.",
+          feasibility: "Highly feasible using existing cloud-agnostic architectures and serverless primitives.",
+          strategy: "Freemium model with high-value conversion points and exclusive vault access.",
+          summaryTable: {
+            product: "Curated, actionable startup blueprints.",
+            audience: "Early-stage entrepreneurs & hackers.",
+            competition: "Low - High specialization & execution focus.",
+            demand: "Rising - High need for validated concepts.",
+            resources: "Minimal - Digital delivery & AI-powered scaling.",
+            strategy: "Digital scarcity & exclusive ownership."
+          }
+        }
       };
 
       await setDoc(ideaRef, trialIdea);
@@ -374,11 +390,6 @@ export default function App() {
     if (generating || quotaExhausted) return;
     setGenerating(true);
     try {
-      const { GoogleGenAI, Type } = await import('@google/genai');
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
-      const ai = new GoogleGenAI({ apiKey });
-      
       const marketContext = params?.targetMarket ? `Specifically target the following market: ${params.targetMarket}.` : "";
       const directiveContext = params?.directive ? `Strategic Directive: ${params.directive}.` : "Focus on high-growth scalability and unique market differentiation.";
 
@@ -393,29 +404,9 @@ export default function App() {
       Focus on specialized features that solve problems for the specified targets.
       
       Output in JSON format with fields: title, tagline, description (markdown), category, techStack (array), features (array), resources (array), estimatedComplexity (Easy/Medium/Hard), estimatedDuration.`;
-       const result = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              tagline: { type: Type.STRING },
-              description: { type: Type.STRING },
-              category: { type: Type.STRING },
-              techStack: { type: Type.ARRAY, items: { type: Type.STRING } },
-              features: { type: Type.ARRAY, items: { type: Type.STRING } },
-              resources: { type: Type.ARRAY, items: { type: Type.STRING } },
-              estimatedComplexity: { type: Type.STRING },
-              estimatedDuration: { type: Type.STRING }
-            }
-          }
-        }
-      });
-
-      const remixedData = JSON.parse(result.text || "{}");
+      
+      const responseText = await generateAIResponse(prompt);
+      const remixedData = JSON.parse(responseText || "{}");
       
       // Fixed pricing for remix logic
       const rawPrice = (baseIdea.price * 1.5); // Evolution is more valuable
@@ -454,8 +445,14 @@ export default function App() {
     } catch (err: any) {
       console.error("Remix failed:", err);
       let errorMsg = "Neural Evolution failed. The market is too volatile right now.";
-      if (err?.message?.includes('RESOURCE_EXHAUSTED')) {
-        errorMsg = "Neural mesh saturated. AI quota reached for this month. Try again later.";
+      const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+
+      if (errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('429')) {
+        if (errorStr.includes('spending cap')) {
+          errorMsg = "Neural Matrix locked: Monthly budget reached. Evolution suspended.";
+        } else {
+          errorMsg = "Neural mesh saturated. AI quota reached for this month. Try again later.";
+        }
         setQuotaExhausted(true);
       }
       setNotifications(prev => [{ id: Date.now().toString(), text: errorMsg }, ...prev]);
@@ -512,10 +509,11 @@ export default function App() {
   };
 
   const recommendations = useMemo(() => {
-    if (!userProfile?.purchasedIdeas || userProfile.purchasedIdeas.length === 0) return [];
-    const purchased = ideas.filter(i => userProfile.purchasedIdeas.includes(i.id));
+    if (!userProfile?.purchasedIdeas || userProfile.purchasedIdeas.length === 0 || !ideas) return [];
+    const purchased = ideas.filter(i => (userProfile.purchasedIdeas || []).includes(i.id));
     const favCategories = Array.from(new Set(purchased.map(p => p.category)));
-    return ideas.filter(i => favCategories.includes(i.category) && !userProfile.purchasedIdeas.includes(i.id)).slice(0, 3);
+    const purchasedIds = userProfile.purchasedIdeas || [];
+    return ideas.filter(i => favCategories.includes(i.category) && !purchasedIds.includes(i.id)).slice(0, 3);
   }, [ideas, userProfile]);
 
   const filteredIdeas = useMemo(() => {
@@ -531,15 +529,20 @@ export default function App() {
       result = result.filter(i => userProfile.favorites.includes(i.id) || userProfile.purchasedIdeas.includes(i.id));
     }
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+      const q = (searchQuery || "").toLowerCase();
       result = result.filter(i =>
-        i.title.toLowerCase().includes(q) ||
-        i.category.toLowerCase().includes(q) ||
-        i.techStack.some(t => t.toLowerCase().includes(q))
+        (i.title || "").toLowerCase().includes(q) ||
+        (i.category || "").toLowerCase().includes(q) ||
+        (i.techStack || []).some(t => (t || "").toLowerCase().includes(q))
       );
     }
+
+    if (selectedCategory !== 'All') {
+      result = result.filter(i => (i.category || "").toLowerCase().includes(selectedCategory.toLowerCase()));
+    }
+
     return result;
-  }, [ideas, activeTab, searchQuery, userProfile]);
+  }, [ideas, activeTab, searchQuery, selectedCategory, userProfile]);
 
   const handleIdeaClick = (idea: Idea) => {
     if (isBoosterMode) {
@@ -669,7 +672,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-navy font-sans selection:bg-electric/10 selection:text-electric">
       <style>{masonryStyles}</style>
-      <Navbar onSearch={setSearchQuery} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar 
+        onSearch={setSearchQuery} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        notificationCount={notifications.length}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
@@ -682,7 +690,7 @@ export default function App() {
             >
               <ProfileView 
                 userProfile={userProfile} 
-                purchasedIdeas={ideas.filter(i => userProfile?.purchasedIdeas.includes(i.id))} 
+                purchasedIdeas={ideas.filter(i => (userProfile?.purchasedIdeas || []).includes(i.id))} 
                 activities={activities}
                 onIdeaClick={handleIdeaClick}
               />
@@ -874,9 +882,10 @@ export default function App() {
                 {['All', 'SaaS', 'AI', 'Fintech', 'Health', 'Blockchain'].map((cat) => (
                   <button
                     key={cat}
+                    onClick={() => setSelectedCategory(cat)}
                     className={cn(
                       "px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap",
-                      cat === 'All' ? 'bg-white shadow-sm text-gray-900 border border-gray-100' : 'text-gray-500 hover:text-gray-900'
+                      selectedCategory === cat ? 'bg-white shadow-sm text-gray-900 border border-gray-100' : 'text-gray-500 hover:text-gray-900'
                     )}
                   >
                     {cat}
@@ -959,6 +968,7 @@ export default function App() {
             onRemix={handleRemix}
             isPurchased={userProfile?.purchasedIdeas?.includes(selectedIdea.id) || false}
             userProfile={userProfile}
+            onDelete={isAdmin ? handleDelete : undefined}
             onFavorite={async (id) => {
               if (!user || !userProfile) {
                 signInWithGoogle();

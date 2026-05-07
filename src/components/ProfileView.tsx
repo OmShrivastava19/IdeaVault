@@ -31,7 +31,7 @@ export default function ProfileView({ userProfile, purchasedIdeas, activities, o
     ? Math.max(1, Math.ceil((Date.now() - new Date(userProfile.createdAt).getTime()) / (1000 * 60 * 60 * 24)))
     : 1;
 
-  const totalVotes = Object.values(userProfile.votedIdeas).length;
+  const totalVotes = Object.values(userProfile.votedIdeas || {}).length;
   const totalImpact = (totalVotes * 10) + (purchasedIdeas.length * 150);
   
   let level = 'Newbie';
@@ -82,7 +82,7 @@ export default function ProfileView({ userProfile, purchasedIdeas, activities, o
               <Box className="text-orange-500" size={20} />
               Your Private Vault
             </h3>
-            {purchasedIdeas.length > 0 ? (
+            {purchasedIdeas && purchasedIdeas.length > 0 ? (
               <div className="space-y-3">
                 {purchasedIdeas.map(idea => (
                   <motion.div

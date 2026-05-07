@@ -13,6 +13,7 @@ import {
 import { Idea, UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { generateAIResponse } from '../lib/openrouter';
 
 import { db, auth } from '../lib/firebase';
 import { doc, updateDoc, arrayUnion, setDoc, collection } from 'firebase/firestore';
@@ -27,6 +28,7 @@ interface IdeaDetailProps {
   onFavorite: (id: string) => void;
   onViewIncrease?: (id: string) => void;
   onStartBooster: () => void;
+  onDelete?: (id: string) => void;
 }
 
 declare global {
@@ -47,9 +49,10 @@ const BOILERPLATE_MAP: Record<string, string> = {
   'Blockchain': 'https://github.com/ethereum/solidity'
 };
 
-export default function IdeaDetail({ idea, onClose, onPurchase, onRemix, isPurchased, userProfile, onFavorite, onViewIncrease, onStartBooster }: IdeaDetailProps) {
+export default function IdeaDetail({ idea, onClose, onPurchase, onRemix, isPurchased, userProfile, onFavorite, onViewIncrease, onStartBooster, onDelete }: IdeaDetailProps) {
   const [purchasing, setPurchasing] = useState(false);
   const [remixing, setRemixing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'blueprint' | 'roadmap' | 'boilerplate' | 'certificate'>('blueprint');
   const [roadmap, setRoadmap] = useState<string | null>(idea.roadmap || null);
   const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
@@ -163,23 +166,13 @@ export default function IdeaDetail({ idea, onClose, onPurchase, onRemix, isPurch
     if (roadmap || generatingRoadmap) return;
     setGeneratingRoadmap(true);
     try {
-      const { GoogleGenAI } = await import('@google/genai');
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
-      const ai = new GoogleGenAI({ apiKey });
-      
       const prompt = `Create a highly tactical 30-day execution roadmap for the startup idea: "${idea.title}".
-      Tech Stack: ${idea.techStack.join(', ')}.
+      Tech Stack: ${(idea.techStack || []).join(', ')}.
       Format as a clear day-by-day markdown list (Day 1-30). 
       Break it into phases: Week 1 (MVP Setup), Week 2 (Core Build), Week 3 (Beta Testing), Week 4 (Feedback & Launch Prep).
       Be extremely practical about Indian market entry if applicable.`;
 
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ parts: [{ text: prompt }] }]
-      });
-
-      const generated = result.text || "Failed to generate roadmap.";
+      const generated = await generateAIResponse(prompt, false);
       setRoadmap(generated);
       setRoadmapError(null);
       
@@ -188,8 +181,14 @@ export default function IdeaDetail({ idea, onClose, onPurchase, onRemix, isPurch
       await updateDoc(ideaRef, { roadmap: generated });
     } catch (err: any) {
       console.error("Roadmap generation failed:", err);
-      if (err?.message?.includes('RESOURCE_EXHAUSTED')) {
-        setRoadmapError("The AI engine has reached its monthly quota. Please try again later or check our static resources.");
+      const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+
+      if (errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('429')) {
+        if (errorStr.includes('spending cap')) {
+          setRoadmapError("The AI project's monthly budget has been reached. Roadmap generation is currently unavailable.");
+        } else {
+          setRoadmapError("The AI engine has reached its monthly quota. Please try again later or check our static resources.");
+        }
       } else {
         setRoadmapError("Brainstorming session failed. Our neural link is slightly unstable. Please try again.");
       }
@@ -202,9 +201,9 @@ export default function IdeaDetail({ idea, onClose, onPurchase, onRemix, isPurch
     const basePrompt = `Design and build a professional, full-stack web application titled "${idea.title}".
 Context: ${idea.tagline}.
 Category: ${idea.category}.
-Tech Stack Requirements: ${idea.techStack.join(", ")}.
+Tech Stack Requirements: ${(idea.techStack || []).join(", ")}.
 Key Features to Implement:
-${idea.features.map(f => `- ${f}`).join('\n')}
+${(idea.features || []).map(f => `- ${f}`).join('\n')}
 
 Architectural Direction: Use a modern modular structure with a separation of concerns (src/components, src/hooks, src/services, etc.). Ensure mobile responsiveness and a polished UI using Tailwind CSS. 
 The application should include essential boilerplate like environment config (.env), standard .gitignore, and a detailed README.md explaining the setup and features.
@@ -216,7 +215,7 @@ Make it production-ready.`;
   };
 
   const getBoilerplates = () => {
-    return idea.techStack
+    return (idea.techStack || [])
       .map(tech => ({ tech, url: BOILERPLATE_MAP[tech] }))
       .filter(b => b.url);
   };
@@ -401,7 +400,7 @@ Make it production-ready.`;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${idea.title.replace(/\s+/g, '-').toLowerCase()}-architecture.svg`;
+    link.download = `${(idea.title || "untitled").replace(/\s+/g, '-').toLowerCase()}-architecture.svg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -454,10 +453,10 @@ Make it production-ready.`;
                     Market Angles
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {(idea.marketAngles || [
-                      "Position as a productivity tool for remote managers.",
-                      "Target early-stage startups needing rapid prototyping.",
-                      "Market as a secondary asset for established SaaS companies."
+                    {(idea.marketAngles && idea.marketAngles.length > 0 ? idea.marketAngles : [
+                      "Secure first-mover advantage in a high-growth niche.",
+                      "Lower operational friction for underserved segments.",
+                      "Scale through strategic partnerships in the local ecosystem."
                     ]).map((angle, i) => (
                       <div key={i} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-start gap-3">
                          <div className="w-5 h-5 rounded-full bg-electric/10 text-electric flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -469,14 +468,145 @@ Make it production-ready.`;
                   </div>
                 </section>
 
+                {idea.marketAngleAnalysis && (
+                  <section className="space-y-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-navy">
+                      <TrendingUp className="text-electric" size={20} />
+                      Market Analysis & Sustainability
+                    </h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-electric mb-2">1. Market Sizing & Potential</h4>
+                          <p className="text-xs text-slate leading-relaxed font-medium">{idea.marketAngleAnalysis.marketSizing}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-electric mb-2">2. Competitive Landscape</h4>
+                          <p className="text-xs text-slate leading-relaxed font-medium">{idea.marketAngleAnalysis.competitiveLandscape}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-electric mb-2">3. Customer & Target Audience</h4>
+                          <p className="text-xs text-slate leading-relaxed font-medium">{idea.marketAngleAnalysis.targetAudience}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-electric mb-2">4. Technical & Resource Feasibility</h4>
+                          <p className="text-xs text-slate leading-relaxed font-medium">{idea.marketAngleAnalysis.feasibility}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-electric mb-2">5. Strategy & Performance Metrics</h4>
+                          <p className="text-xs text-slate leading-relaxed font-medium">{idea.marketAngleAnalysis.strategy}</p>
+                        </div>
+                        
+                        {/* Summary Table Mini */}
+                        <div className="bg-navy p-5 rounded-2xl text-white shadow-xl relative overflow-hidden">
+                           <div className="relative z-10">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-electric mb-4">Commercial Sustainability Score</h4>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                 <div>
+                                    <span className="block text-[8px] uppercase tracking-tighter text-white/50">Demand</span>
+                                    <span className="text-[10px] font-bold">{idea.marketAngleAnalysis.summaryTable.demand}</span>
+                                 </div>
+                                 <div className="text-right">
+                                    <span className="block text-[8px] uppercase tracking-tighter text-white/50">Competition</span>
+                                    <span className="text-[10px] font-bold">{idea.marketAngleAnalysis.summaryTable.competition}</span>
+                                 </div>
+                                 <div>
+                                    <span className="block text-[8px] uppercase tracking-tighter text-white/50">Strategy</span>
+                                    <span className="text-[10px] font-bold line-clamp-1">{idea.marketAngleAnalysis.summaryTable.strategy}</span>
+                                 </div>
+                                 <div className="text-right">
+                                    <span className="block text-[8px] uppercase tracking-tighter text-white/50">Feasibility</span>
+                                    <span className="text-[10px] font-bold">Standardized High</span>
+                                 </div>
+                              </div>
+                           </div>
+                           <Rocket className="absolute -right-4 -bottom-4 text-white/5" size={64} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100">
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-navy">Component</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-navy">Market Strategy Detail</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          <tr>
+                            <td className="px-6 py-4">
+                              <span className="text-[10px] font-black text-electric uppercase tracking-tight">Product</span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate">
+                              {idea.marketAngleAnalysis.summaryTable.product}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-4">
+                              <span className="text-[10px] font-black text-electric uppercase tracking-tight">Audience</span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate">
+                              {idea.marketAngleAnalysis.summaryTable.audience}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-4">
+                              <span className="text-[10px] font-black text-electric uppercase tracking-tight">Competition</span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate">
+                              {idea.marketAngleAnalysis.summaryTable.competition}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-4">
+                              <span className="text-[10px] font-black text-electric uppercase tracking-tight">Demand</span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate">
+                              {idea.marketAngleAnalysis.summaryTable.demand}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-4">
+                              <span className="text-[10px] font-black text-electric uppercase tracking-tight">Resources</span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate">
+                              {idea.marketAngleAnalysis.summaryTable.resources}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-4">
+                              <span className="text-[10px] font-black text-electric uppercase tracking-tight">Strategy</span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate">
+                              {idea.marketAngleAnalysis.summaryTable.strategy}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
+
                 <section>
                   <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-navy">
                     <BarChart3 className="text-electric" size={20} />
                     The Opportunity
                   </h2>
-                  <p className="text-slate text-sm font-medium leading-relaxed">
-                    This concept bridges a critical gap in the {idea.category} market by leveraging {idea.techStack.join(', ')}. The primary value proposition lies in its ability to {idea.tagline.toLowerCase()}.
-                  </p>
+                  <div className="prose prose-sm max-w-none text-slate font-medium leading-relaxed">
+                    {idea.opportunity ? (
+                      <div className="markdown-content">
+                        <ReactMarkdown>{idea.opportunity}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p>
+                        This concept bridges a critical gap in the {idea.category} market by leveraging {(idea.techStack || []).join(', ')}. The primary value proposition lies in its ability to {(idea.tagline || "").toLowerCase()}.
+                      </p>
+                    )}
+                  </div>
                 </section>
 
                 {isPurchased ? (
@@ -584,7 +714,7 @@ Make it production-ready.`;
                                     </div>
                                  </div>
                                  <div className="text-right sr-only sm:not-sr-only">
-                                    <p className="text-[8px] font-mono text-slate uppercase tracking-tighter">ID: {idea.id.slice(0, 16)}</p>
+                                    <p className="text-[8px] font-mono text-slate uppercase tracking-tighter">ID: {(idea.id || '').slice(0, 16)}</p>
                                  </div>
                               </div>
                            </div>
@@ -648,8 +778,8 @@ Make it production-ready.`;
                                 <ul className="space-y-3">
                                   {[
                                     `Establish a scalable foundation for the ${idea.category} market within 30 days.`,
-                                    `Implement core proprietary logic using ${idea.techStack[0]} as the primary engine.`,
-                                    `Target $10k+ MRR by automating ${idea.features[0].toLowerCase()} for early adopters.`,
+                                    `Implement core proprietary logic using ${(idea.techStack && idea.techStack[0] ? idea.techStack[0] : "modern tech")} as the primary engine.`,
+                                    `Target $100k+ MRR by automating ${(idea.features && idea.features[0] ? idea.features[0] : "processes").toLowerCase()} for early adopters.`,
                                     `Acquire initial segment of the Indian tech-enabled market through localized strategies.`
                                   ].map((goal, i) => (
                                     <li key={i} className="text-xs font-semibold text-slate flex gap-3">
@@ -690,7 +820,7 @@ Make it production-ready.`;
                                   <div className="space-y-6">
                                      {[
                                        { week: "01", task: "Foundation & Infra Setup", desc: "Environment provisioning, repo setup, and auth layer." },
-                                       { week: "02", task: "Prototyping Core Module", desc: `Building ${idea.features[0]}.` },
+                                       { week: "02", task: "Prototyping Core Module", desc: `Building ${(idea.features && idea.features[0] ? idea.features[0] : "core features")}.` },
                                        { week: "03", task: "Business Logic Integration", desc: "Connecting backend services and state management." },
                                        { week: "04", task: "Refinement & Soft Launch", desc: "Final UI polish and segment-specific landing pages." }
                                      ].map((item, i) => (
@@ -1221,6 +1351,24 @@ Make it production-ready.`;
                    <Bookmark size={20} fill={isFavorite ? "currentColor" : "none"} />
                    {isFavorite ? 'Saved to Vault' : 'Save for Later'}
                  </button>
+
+                {onDelete && (
+                   <button
+                     onClick={async () => {
+                       if (window.confirm('⚠️ CRITICAL: Permanently remove this concept?')) {
+                         setDeleting(true);
+                         await onDelete(idea.id);
+                         setDeleting(false);
+                         onClose();
+                       }
+                     }}
+                     disabled={deleting}
+                     className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold border border-red-200 text-red-600 hover:bg-red-50 transition-all active:scale-95 disabled:opacity-50"
+                   >
+                     {deleting ? <Loader2 className="animate-spin" size={20} /> : <X size={20} />}
+                     Delete Concept
+                   </button>
+                )}
               </div>
             </div>
           </div>

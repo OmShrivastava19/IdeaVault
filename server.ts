@@ -63,6 +63,60 @@ async function startServer() {
     }
   });
 
+  app.post("/api/ai/completion", async (req, res) => {
+    const { messages, response_format } = req.body;
+    const apiKey = process.env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: "OpenRouter API Key not configured on server" });
+    }
+
+    console.log(`Starting AI completion with model: openrouter/free`);
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://ideavault.ai",
+          "X-Title": "IdeaVault",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages
+        })
+      });
+
+      const textResponse = await response.text();
+      console.log(`OpenRouter response status: ${response.status}`);
+      let data;
+      try {
+        data = JSON.parse(textResponse);
+      } catch (e) {
+        console.error("OpenRouter Non-JSON Response:", textResponse);
+        return res.status(500).json({ 
+          error: "Invalid JSON response from AI provider",
+          details: textResponse.substring(0, 200)
+        });
+      }
+      
+      if (!response.ok) {
+        console.error("OpenRouter API Error Response:", data);
+        return res.status(response.status).json(data);
+      }
+
+      if (data.error) {
+        console.error("OpenRouter Data Error:", data.error);
+        return res.status(500).json(data);
+      }
+
+      res.json(data);
+    } catch (error) {
+      console.error("OpenRouter Proxy Error:", error);
+      res.status(500).json({ error: "AI Generation failed at server proxy" });
+    }
+  });
+
   app.post("/api/verify-payment", async (req, res) => {
     const { orderId, paymentId, signature, ideaId, userId } = req.body;
     const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "test");

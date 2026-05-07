@@ -117,11 +117,11 @@ export default function IdeaCard({ idea, onClick, onVote, onDelete, userVote, is
           </div>
 
           <div className="flex gap-1.5">
-             {idea.techStack.slice(0, 2).map((tech) => (
+              {(idea.techStack || []).slice(0, 2).map((tech) => (
                 <span key={tech} className="text-slate text-[9px] font-bold uppercase tracking-tight">
-                  #{tech.toLowerCase()}
+                  #{(tech || "").toLowerCase()}
                 </span>
-             ))}
+              ))}
           </div>
         </div>
       </div>

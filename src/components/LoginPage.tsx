@@ -31,7 +31,11 @@ export default function LoginPage() {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/Password authentication is not enabled in Firebase Console. Please enable it in the "Sign-in method" tab.');
+      } else {
+        setError(err.message || 'Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
