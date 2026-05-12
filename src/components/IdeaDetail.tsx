@@ -13,7 +13,7 @@ import {
 import { Idea, UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import ReactMarkdown from 'react-markdown';
-import { generateAIResponse } from '../lib/openrouter';
+import { generateAIResponse, getAIErrorMessage, isAIQuotaError } from '../lib/openrouter';
 
 import { db, auth } from '../lib/firebase';
 import { doc, updateDoc, arrayUnion, setDoc, collection } from 'firebase/firestore';
@@ -183,14 +183,14 @@ export default function IdeaDetail({ idea, onClose, onPurchase, onRemix, isPurch
       console.error("Roadmap generation failed:", err);
       const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
 
-      if (errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('429')) {
+      if (isAIQuotaError(err)) {
         if (errorStr.includes('spending cap')) {
           setRoadmapError("The AI project's monthly budget has been reached. Roadmap generation is currently unavailable.");
         } else {
           setRoadmapError("The AI engine has reached its monthly quota. Please try again later or check our static resources.");
         }
       } else {
-        setRoadmapError("Brainstorming session failed. Our neural link is slightly unstable. Please try again.");
+        setRoadmapError(getAIErrorMessage(err, "Brainstorming session failed. Our neural link is slightly unstable. Please try again."));
       }
     } finally {
       setGeneratingRoadmap(false);

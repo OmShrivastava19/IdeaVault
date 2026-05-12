@@ -21,7 +21,7 @@ Perfect for developers looking to start their next project or entrepreneurs seek
 
 ## ✨ Key Features
 
-- 🤖 **AI-Powered Idea Generation** – Generate unique project ideas using Google Gemini
+- 🤖 **AI-Powered Idea Generation** – Generate unique project ideas using OpenRouter
 - 🏪 **Idea Marketplace** – Buy and sell innovative project concepts with transparent pricing
 - 🗳️ **Community Voting System** – Upvote/downvote ideas and discover trending concepts
 - 🔐 **Secure Authentication** – Google Sign-in with Firebase Authentication
@@ -50,7 +50,7 @@ Perfect for developers looking to start their next project or entrepreneurs seek
 ### Database & Services
 - **Firebase Firestore** – Real-time NoSQL database
 - **Firebase Authentication** – OAuth & email authentication
-- **Google Generative AI** – AI idea generation
+- **OpenRouter** – AI idea generation proxy
 - **Razorpay** – Payment processing
 
 ### Deployment
@@ -72,7 +72,7 @@ Experience the marketplace live and explore innovative project ideas!
 - Node.js (v18 or higher)
 - npm or yarn
 - Firebase project setup
-- Google Generative AI API key
+- OpenRouter API key
 - Razorpay account (for payment features)
 
 ### Installation
@@ -90,7 +90,7 @@ Experience the marketplace live and explore innovative project ideas!
 
 3. **Configure environment variables**
    
-   Create a `.env.local` file in the root directory:
+   Create a `.env` or `.env.local` file in the project root:
    ```env
    VITE_FIREBASE_API_KEY=your_firebase_api_key
    VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
@@ -99,17 +99,19 @@ Experience the marketplace live and explore innovative project ideas!
    VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    VITE_FIREBASE_APP_ID=your_app_id
    
-   GEMINI_API_KEY=your_gemini_api_key
+   OPENROUTER_API_KEY=your_openrouter_api_key
    RAZORPAY_KEY_SECRET=your_razorpay_secret
    VITE_RAZORPAY_KEY_ID=your_razorpay_public_key
    ```
+
+   `server.ts` serves both the frontend and the `/api/*` proxy. After changing `OPENROUTER_API_KEY`, restart `npm run dev`.
 
 4. **Start development server**
    ```bash
    npm run dev
    ```
 
-   The app will be available at `http://localhost:5173`
+   The app and Express API proxy will be available at `http://localhost:3000`
 
 5. **Build for production**
    ```bash
@@ -161,7 +163,7 @@ Shows comprehensive idea information:
 - User reviews and community votes
 
 ### AI Idea Generation
-Leverages Google Gemini to create unique ideas with:
+Leverages OpenRouter to create unique ideas with:
 - Intelligent project suggestions
 - Auto-generated tech stacks
 - Complexity estimation
@@ -211,7 +213,7 @@ This project is open source and available under the MIT License.
 IdeaVault demonstrates expertise in:
 - **Full-stack development** with React and Node.js
 - **Real-time database design** using Firebase/Firestore
-- **AI integration** with Google Generative AI
+- **AI integration** with OpenRouter
 - **Payment processing** and e-commerce workflows
 - **Cloud deployment** on Google Cloud Run
 - **Modern UI/UX** with responsive design principles

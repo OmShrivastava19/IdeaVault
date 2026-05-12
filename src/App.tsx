@@ -32,7 +32,7 @@ import { PrivacyPolicy, TermsOfService, Disclaimer, SecurityPolicy } from './com
 import { Idea, UserProfile, OperationType } from './types';
 import { cn } from './lib/utils';
 import { handleFirestoreError } from './lib/firestoreUtils';
-import { generateAIResponse } from './lib/openrouter';
+import { generateAIResponse, getAIErrorMessage, isAIQuotaError } from './lib/openrouter';
 
 // Global styles for Masonry-like grid
 const masonryStyles = `
@@ -244,10 +244,10 @@ export default function App() {
 
     } catch (err: any) {
       console.error("Client generation failed:", err);
-      let errorMsg = "The idea vault seems locked. Please try again later.";
+      let errorMsg = getAIErrorMessage(err, "The idea vault seems locked. Please try again later.");
       const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
       
-      if (errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('429')) {
+      if (isAIQuotaError(err)) {
         if (errorStr.includes('spending cap')) {
           errorMsg = "AI Budget Exhausted: The monthly spending cap has been reached. Please contact the project owner.";
         } else {
@@ -444,10 +444,10 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Remix failed:", err);
-      let errorMsg = "Neural Evolution failed. The market is too volatile right now.";
+      let errorMsg = getAIErrorMessage(err, "Neural Evolution failed. The market is too volatile right now.");
       const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
 
-      if (errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('429')) {
+      if (isAIQuotaError(err)) {
         if (errorStr.includes('spending cap')) {
           errorMsg = "Neural Matrix locked: Monthly budget reached. Evolution suspended.";
         } else {
