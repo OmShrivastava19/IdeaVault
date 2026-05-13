@@ -254,6 +254,9 @@ export default function App() {
           errorMsg = "AI Quota reached for the month. We use high-quality free-tier models to keep this service accessible.";
         }
         setQuotaExhausted(true);
+      } else if (err?.status === 429) {
+        // Temporary rate limit - will retry automatically
+        errorMsg = "AI service is busy. Retrying in a moment...";
       }
       setNotifications(prev => [{ id: Date.now().toString(), text: errorMsg }, ...prev]);
     } finally {
@@ -454,6 +457,9 @@ export default function App() {
           errorMsg = "Neural mesh saturated. AI quota reached for this month. Try again later.";
         }
         setQuotaExhausted(true);
+      } else if (err?.status === 429) {
+        // Temporary rate limit - will retry automatically
+        errorMsg = "Neural network busy. Retrying in a moment...";
       }
       setNotifications(prev => [{ id: Date.now().toString(), text: errorMsg }, ...prev]);
     } finally {

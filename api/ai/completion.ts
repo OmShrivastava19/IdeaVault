@@ -1,5 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+// Free models prioritized by availability and performance
+const FREE_MODELS = [
+  "openrouter/free",
+  "meta-llama/llama-2-7b-chat:free",
+  "mistralai/mistral-7b-instruct:free",
+  "nousresearch/nous-hermes-2-mixtral-8x7b-sft:free",
+];
+
 function isValidAIMessage(message: unknown): message is { role: string; content: string } {
   if (!message || typeof message !== "object") {
     return false;
@@ -7,6 +15,65 @@ function isValidAIMessage(message: unknown): message is { role: string; content:
 
   const candidate = message as { role?: unknown; content?: unknown };
   return typeof candidate.role === "string" && typeof candidate.content === "string" && candidate.content.trim().length > 0;
+}
+
+async function tryModel(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  response_format: any,
+  apiKey: string
+): Promise<{ success: boolean; data?: any; error?: any; status?: number }> {
+  try {
+    const requestBody: Record<string, unknown> = {
+      model,
+      messages,
+    };
+
+    if (response_format) {
+      requestBody.response_format = response_format;
+    }
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://ideavault.ai",
+        "X-Title": "IdeaVault",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const textResponse = await response.text();
+    let data;
+
+    try {
+      data = JSON.parse(textResponse);
+    } catch (e) {
+      return { success: false, error: "Invalid JSON response", status: 502 };
+    }
+
+    if (!response.ok) {
+      // 429 = rate limit, try next model
+      // 401 = auth error, don't retry
+      if (response.status === 401) {
+        return { success: false, error: "Authentication failed", status: 401 };
+      }
+      return { success: false, error: data, status: response.status };
+    }
+
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+
+    if (data.choices && data.choices.length > 0) {
+      return { success: true, data };
+    }
+
+    return { success: false, error: "Invalid response structure" };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
 
 export default async (req: VercelRequest, res: VercelResponse) => {
@@ -33,72 +100,56 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     });
   }
 
-  try {
-    const requestBody: Record<string, unknown> = {
-      model: "openrouter/free",
-      messages,
-    };
+  let lastError: any = null;
+  let lastStatus = 500;
 
-    if (response_format) {
-      requestBody.response_format = response_format;
+  // Try each model in fallback order
+  for (const model of FREE_MODELS) {
+    console.log(`Attempting AI generation with model: ${model}`);
+    const result = await tryModel(model, messages, response_format, apiKey);
+
+    if (result.success && result.data) {
+      console.log(`Success with model: ${model}`);
+      return res.json(result.data);
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://ideavault.ai",
-        "X-Title": "IdeaVault",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
+    lastError = result.error;
+    lastStatus = result.status || 500;
 
-    const textResponse = await response.text();
-    let data;
-    try {
-      data = JSON.parse(textResponse);
-    } catch (e) {
-      console.error("OpenRouter Non-JSON Response:", textResponse);
-      return res.status(502).json({
-        code: "OPENROUTER_INVALID_RESPONSE",
-        error: "Invalid JSON response from OpenRouter.",
-        userMessage: "The AI provider returned an unexpected response. Please try again in a moment.",
-        details: textResponse.substring(0, 200)
-      });
-    }
-    
-    if (!response.ok) {
-      console.error("OpenRouter API Error Response:", data);
-      return res.status(response.status).json({
-        code: data?.error?.code || data?.code || "OPENROUTER_REQUEST_FAILED",
-        error: data?.error?.message || data?.error || "OpenRouter request failed.",
-        userMessage: response.status === 401
-          ? "The AI provider rejected the configured API key. Update OPENROUTER_API_KEY."
-          : response.status === 429
-            ? "The AI provider rate limit has been reached. Please try again later."
-            : "The AI provider could not complete the request. Please try again.",
-        providerError: data,
-      });
+    // Don't retry on auth errors
+    if (lastStatus === 401) {
+      break;
     }
 
-    if (data.error) {
-      console.error("OpenRouter Data Error:", data.error);
-      return res.status(502).json({
-        code: data?.error?.code || "OPENROUTER_DATA_ERROR",
-        error: data?.error?.message || "OpenRouter returned an error payload.",
-        userMessage: "The AI provider returned an error. Please try again.",
-        providerError: data,
-      });
+    // Small delay before trying next model
+    if (model !== FREE_MODELS[FREE_MODELS.length - 1]) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
+  }
 
-    return res.json(data);
-  } catch (error) {
-    console.error("OpenRouter Proxy Error:", error);
-    return res.status(500).json({
-      code: "OPENROUTER_PROXY_ERROR",
-      error: "AI generation failed at the server proxy.",
-      userMessage: "The AI request could not reach the provider. Please check the server logs and try again.",
+  // All models failed
+  console.error("All free models exhausted. Last error:", lastError);
+
+  if (lastStatus === 401) {
+    return res.status(401).json({
+      code: "OPENROUTER_AUTH_FAILED",
+      error: "Authentication failed",
+      userMessage: "The AI provider rejected the configured API key. Update OPENROUTER_API_KEY.",
     });
   }
+
+  if (lastStatus === 429) {
+    return res.status(429).json({
+      code: "OPENROUTER_RATE_LIMITED",
+      error: "All free models are currently rate limited",
+      userMessage: "The AI service is temporarily overwhelmed. Please wait a few minutes and try again.",
+    });
+  }
+
+  return res.status(502).json({
+    code: "OPENROUTER_ALL_FAILED",
+    error: "All free model attempts failed",
+    userMessage: "The AI service is unavailable. Please try again in a moment.",
+    details: typeof lastError === "string" ? lastError : lastError?.message || "Unknown error",
+  });
 };

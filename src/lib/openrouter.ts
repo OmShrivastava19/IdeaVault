@@ -86,10 +86,14 @@ export function isAIQuotaError(error: unknown): boolean {
         ? error
         : '';
 
-  return message.includes('RESOURCE_EXHAUSTED') || message.includes('429') || message.toLowerCase().includes('rate limit');
+  // Only treat RESOURCE_EXHAUSTED as quota error (not temporary 429 rate limits)
+  return message.includes('RESOURCE_EXHAUSTED') || message.includes('spending cap') || message.toLowerCase().includes('quota reached');
 }
 
-export async function generateAIResponse(prompt: string, jsonResponse: boolean = true): Promise<string> {
+export async function generateAIResponse(prompt: string, jsonResponse: boolean = true, retryCount = 0): Promise<string> {
+  const MAX_RETRIES = 3;
+  const BASE_DELAY = 1000; // 1 second
+
   try {
     const response = await fetch('/api/ai/completion', {
       method: 'POST',
@@ -117,6 +121,15 @@ export async function generateAIResponse(prompt: string, jsonResponse: boolean =
       }
 
       const errorMsg = getServerErrorMessage(errorData);
+      
+      // Retry on 429 (rate limit) with exponential backoff
+      if (response.status === 429 && retryCount < MAX_RETRIES) {
+        const delay = BASE_DELAY * Math.pow(2, retryCount); // 1s, 2s, 4s
+        console.warn(`Rate limited. Retrying in ${delay}ms... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return generateAIResponse(prompt, jsonResponse, retryCount + 1);
+      }
+
       const userMessage = errorData?.userMessage || (response.status >= 500
         ? 'The AI service is temporarily unavailable. Please try again in a moment.'
         : errorMsg);
